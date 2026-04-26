@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "SoundCloud DL Checker",
+    "slug": "soundcloud-dl-checker",
+    "version": "0.1.0",
+    "scheme": "soundclouddlchecker",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.example.soundclouddlchecker"
+    },
+    "android": {
+      "package": "com.example.soundclouddlchecker"
+    }
+  }
+}
+

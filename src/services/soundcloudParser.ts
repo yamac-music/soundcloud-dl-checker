@@ -1,0 +1,171 @@
+import type { MetadataSnapshot } from "@/types/soundcloud";
+
+type HydrationTrack = {
+  artwork_url?: string | null;
+  description?: string | null;
+  downloadable?: boolean;
+  purchase_title?: string | null;
+  purchase_url?: string | null;
+  title?: string | null;
+  user?: {
+    username?: string | null;
+  } | null;
+};
+
+const EXTERNAL_DOWNLOAD_HOSTS = new Set([
+  "hypeddit.com",
+  "www.hypeddit.com",
+  "toneden.io",
+  "www.toneden.io",
+  "theartistunion.com",
+  "www.theartistunion.com",
+  "artistunion.com",
+  "www.artistunion.com",
+  "dropbox.com",
+  "www.dropbox.com",
+  "drive.google.com",
+  "mediafire.com",
+  "www.mediafire.com"
+]);
+
+export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
+  const hydrationTrack = findHydrationTrack(html);
+  const rawFlag =
+    typeof hydrationTrack?.downloadable === "boolean"
+      ? hydrationTrack.downloadable
+      : findJsonBoolean(html, "downloadable");
+  const hasBuyDownloadLink =
+    hasDownloadLink(hydrationTrack?.purchase_url) || hasBuyAnchorDownloadLink(html);
+  const hasExternalDownloadLink = hasDownloadLink(hydrationTrack?.description);
+  const effectiveRawFlag =
+    rawFlag === true
+      ? true
+      : hasBuyDownloadLink
+        ? "buy_link"
+        : hasExternalDownloadLink
+          ? "external_link"
+          : rawFlag;
+
+  return {
+    title:
+      findMetaTag(html, "twitter:title") ||
+      findMetaTag(html, "og:title") ||
+      hydrationTrack?.title ||
+      null,
+    artist:
+      findMetaTag(html, "soundcloud:creator") ||
+      findMetaTag(html, "twitter:audio:artist_name") ||
+      findMetaTag(html, "author") ||
+      hydrationTrack?.user?.username ||
+      null,
+    artworkUrl: findMetaTag(html, "og:image") || findMetaTag(html, "twitter:image") || hydrationTrack?.artwork_url || null,
+    status:
+      effectiveRawFlag === true || effectiveRawFlag === "external_link" || effectiveRawFlag === "buy_link"
+        ? "downloadable"
+        : effectiveRawFlag === false
+          ? "not_downloadable"
+          : "unknown",
+    rawFlag: effectiveRawFlag
+  };
+}
+
+function hasDownloadLink(description?: string | null) {
+  if (!description) {
+    return false;
+  }
+
+  const matches = description.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+
+  return matches.some((value) => {
+    try {
+      const url = new URL(value.replace(/[),.;!?]+$/g, ""));
+      return EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function hasBuyAnchorDownloadLink(html: string) {
+  const anchors = html.match(/<a\b[^>]*>.*?<\/a>/gis) ?? [];
+
+  return anchors.some((anchor) => {
+    const text = stripHtml(anchor).toLowerCase();
+    const href = readHtmlAttribute(anchor, "href");
+
+    return text.includes("buy") && hasDownloadLink(href);
+  });
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntity(value.replace(/<[^>]*>/g, ""));
+}
+
+function decodeHtmlEntity(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function findMetaTag(html: string, key: string) {
+  const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of tags) {
+    const property = readHtmlAttribute(tag, "property") || readHtmlAttribute(tag, "name");
+
+    if (property === key) {
+      const content = readHtmlAttribute(tag, "content");
+      return content ? decodeHtmlEntity(content) : null;
+    }
+  }
+
+  return null;
+}
+
+function readHtmlAttribute(tag: string, name: string) {
+  const pattern = new RegExp(`${name}\\s*=\\s*(["'])(.*?)\\1`, "i");
+  const match = tag.match(pattern);
+  return match ? match[2] : null;
+}
+
+function findJsonBoolean(html: string, key: string) {
+  const pattern = new RegExp(`"${key}":(true|false)`, "i");
+  const match = html.match(pattern);
+
+  if (!match) {
+    return "missing" as const;
+  }
+
+  return match[1] === "true";
+}
+
+function findHydrationTrack(html: string): HydrationTrack | null {
+  const match = html.match(/window\.__sc_hydration\s*=\s*(\[.*?\]);\s*<\/script>/s);
+
+  if (!match) {
+    return null;
+  }
+
+  try {
+    const entries = JSON.parse(match[1]) as Array<{ data?: unknown; hydratable?: string }>;
+
+    for (const entry of entries) {
+      const data = entry.data;
+
+      if (!data || typeof data !== "object") {
+        continue;
+      }
+
+      if ("downloadable" in data && "title" in data) {
+        return data as HydrationTrack;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}

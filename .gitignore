@@ -1,9 +1,8 @@
 node_modules/
-.expo/
-.expo-shared/
 dist/
 web-build/
 coverage/
+artifacts/
+tmp_playwright_*.js
 *.log
 .DS_Store
-

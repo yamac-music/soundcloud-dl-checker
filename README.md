@@ -10,9 +10,10 @@ SoundCloudの公開トラックURLを入力して、ダウンロード可能か�
 - `on.soundcloud.com` 短縮URLを解決する
 - SoundCloud公開ページのHTML/埋め込みメタデータを確認する
 - 説明欄やBuy Link内のHypedditなどの外部DLリンクも、ダウンロード可能のシグナルとして扱う
+- 抽出できた外部DLリンクは結果に表示し、スマホから直接開けるようにする
 - 結果は `downloadable` / `not_downloadable` / `unknown` に分類する
 
-音源のダウンロード、ファイル保存、非公開API利用、判定履歴の保存は行いません。
+SoundCloudからの音源ファイル取得、ファイル保存、非公開API利用、判定履歴の保存は行いません。
 
 ## Tech Stack
 
@@ -96,5 +97,5 @@ SoundCloudの共有リンクに含まれる `?in=...`、`si=...`、`utm_*` な�
 ## Known Risks
 
 - SoundCloud HTML構造は変わる可能性があるため、取得や解析に失敗した場合は `unknown` を返します。
-- 外部DLリンク判定は説明欄またはBuy Linkに含まれる既知ホストの検出です。すべての配布導線を網羅するものではありません。
+- 外部DLリンク判定と表示は説明欄またはBuy Linkに含まれる既知ホストの検出です。すべての配布導線を網羅するものではありません。
 - SoundCloud側のアクセス制限やHTML構造変更により、Cloudflare Pages Functionからの取得が失敗する可能性があります。

@@ -1,4 +1,4 @@
-import type { MetadataSnapshot } from "@/types/soundcloud";
+import type { DownloadLink, DownloadLinkSource, MetadataSnapshot } from "@/types/soundcloud";
 
 type HydrationTrack = {
   artwork_url?: string | null;
@@ -27,6 +27,7 @@ const EXTERNAL_DOWNLOAD_HOSTS = new Set([
   "mediafire.com",
   "www.mediafire.com"
 ]);
+const SOUNDCLOUD_GATE_HOSTS = new Set(["gate.sc", "www.gate.sc"]);
 
 export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
   const hydrationTrack = findHydrationTrack(html);
@@ -34,9 +35,14 @@ export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
     typeof hydrationTrack?.downloadable === "boolean"
       ? hydrationTrack.downloadable
       : findJsonBoolean(html, "downloadable");
-  const hasBuyDownloadLink =
-    hasDownloadLink(hydrationTrack?.purchase_url) || hasBuyAnchorDownloadLink(html);
-  const hasExternalDownloadLink = hasDownloadLink(hydrationTrack?.description);
+  const downloadLinks = [
+    ...extractDownloadLinks(hydrationTrack?.description, "description"),
+    ...extractDownloadLinks(hydrationTrack?.purchase_url, "buy_link"),
+    ...extractBuyAnchorDownloadLinks(html)
+  ];
+  const uniqueDownloadLinks = dedupeDownloadLinks(downloadLinks);
+  const hasBuyDownloadLink = uniqueDownloadLinks.some((link) => link.source === "buy_link");
+  const hasExternalDownloadLink = uniqueDownloadLinks.some((link) => link.source === "description");
   const effectiveRawFlag =
     rawFlag === true
       ? true
@@ -65,36 +71,81 @@ export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
         : effectiveRawFlag === false
           ? "not_downloadable"
           : "unknown",
-    rawFlag: effectiveRawFlag
+    rawFlag: effectiveRawFlag,
+    downloadLinks: uniqueDownloadLinks
   };
 }
 
-function hasDownloadLink(description?: string | null) {
-  if (!description) {
-    return false;
+function extractDownloadLinks(value: string | null | undefined, source: DownloadLinkSource): DownloadLink[] {
+  if (!value) {
+    return [];
   }
 
-  const matches = description.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  const matches = decodeHtmlEntity(value).match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  const links: DownloadLink[] = [];
 
-  return matches.some((value) => {
-    try {
-      const url = new URL(value.replace(/[),.;!?]+$/g, ""));
-      return EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname);
-    } catch {
-      return false;
+  for (const match of matches) {
+    const url = normalizeDownloadUrl(match);
+
+    if (url) {
+      links.push({ source, url });
     }
-  });
+  }
+
+  return links;
 }
 
-function hasBuyAnchorDownloadLink(html: string) {
-  const anchors = html.match(/<a\b[^>]*>.*?<\/a>/gis) ?? [];
+function normalizeDownloadUrl(value: string): string | null {
+  try {
+    const url = new URL(value.replace(/[),.;!?]+$/g, ""));
 
-  return anchors.some((anchor) => {
+    if (SOUNDCLOUD_GATE_HOSTS.has(url.hostname)) {
+      const nestedUrl = url.searchParams.get("url");
+      return nestedUrl ? normalizeDownloadUrl(nestedUrl) : null;
+    }
+
+    if (!EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname)) {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function dedupeDownloadLinks(links: DownloadLink[]) {
+  const seen = new Set<string>();
+  const uniqueLinks: DownloadLink[] = [];
+
+  for (const link of links) {
+    if (seen.has(link.url)) {
+      continue;
+    }
+
+    seen.add(link.url);
+    uniqueLinks.push(link);
+  }
+
+  return uniqueLinks;
+}
+
+function extractBuyAnchorDownloadLinks(html: string) {
+  const anchors = html.match(/<a\b[^>]*>.*?<\/a>/gis) ?? [];
+  const links: DownloadLink[] = [];
+
+  for (const anchor of anchors) {
     const text = stripHtml(anchor).toLowerCase();
     const href = readHtmlAttribute(anchor, "href");
 
-    return text.includes("buy") && hasDownloadLink(href);
-  });
+    if (!text.includes("buy")) {
+      continue;
+    }
+
+    links.push(...extractDownloadLinks(href, "buy_link"));
+  }
+
+  return links;
 }
 
 function stripHtml(value: string) {

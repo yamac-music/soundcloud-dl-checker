@@ -19,6 +19,7 @@ const EXTERNAL_DOWNLOAD_HOSTS = new Set([
   "mediafire.com",
   "www.mediafire.com"
 ]);
+const SOUNDCLOUD_GATE_HOSTS = new Set(["gate.sc", "www.gate.sc"]);
 
 const server = createServer(async (request, response) => {
   setCorsHeaders(response);
@@ -134,9 +135,14 @@ function parseSoundCloudMetadata(html) {
     typeof hydrationTrack?.downloadable === "boolean"
       ? hydrationTrack.downloadable
       : findJsonBoolean(html, "downloadable");
-  const hasBuyDownloadLink =
-    hasDownloadLink(hydrationTrack?.purchase_url) || hasBuyAnchorDownloadLink(html);
-  const hasExternalDownloadLink = hasDownloadLink(hydrationTrack?.description);
+  const downloadLinks = [
+    ...extractDownloadLinks(hydrationTrack?.description, "description"),
+    ...extractDownloadLinks(hydrationTrack?.purchase_url, "buy_link"),
+    ...extractBuyAnchorDownloadLinks(html)
+  ];
+  const uniqueDownloadLinks = dedupeDownloadLinks(downloadLinks);
+  const hasBuyDownloadLink = uniqueDownloadLinks.some((link) => link.source === "buy_link");
+  const hasExternalDownloadLink = uniqueDownloadLinks.some((link) => link.source === "description");
   const effectiveRawFlag =
     rawFlag === true
       ? true
@@ -169,36 +175,81 @@ function parseSoundCloudMetadata(html) {
         : effectiveRawFlag === false
           ? "not_downloadable"
           : "unknown",
-    rawFlag: effectiveRawFlag
+    rawFlag: effectiveRawFlag,
+    downloadLinks: uniqueDownloadLinks
   };
 }
 
-function hasDownloadLink(description) {
-  if (!description) {
-    return false;
+function extractDownloadLinks(value, source) {
+  if (!value) {
+    return [];
   }
 
-  const matches = description.match(/https?:\/\/[^\s<>"']+/gi) || [];
+  const matches = decodeHtmlEntity(value).match(/https?:\/\/[^\s<>"']+/gi) || [];
+  const links = [];
 
-  return matches.some((value) => {
-    try {
-      const url = new URL(value.replace(/[),.;!?]+$/g, ""));
-      return EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname);
-    } catch {
-      return false;
+  for (const match of matches) {
+    const url = normalizeDownloadUrl(match);
+
+    if (url) {
+      links.push({ source, url });
     }
-  });
+  }
+
+  return links;
 }
 
-function hasBuyAnchorDownloadLink(html) {
-  const anchors = html.match(/<a\b[^>]*>.*?<\/a>/gis) || [];
+function normalizeDownloadUrl(value) {
+  try {
+    const url = new URL(value.replace(/[),.;!?]+$/g, ""));
 
-  return anchors.some((anchor) => {
+    if (SOUNDCLOUD_GATE_HOSTS.has(url.hostname)) {
+      const nestedUrl = url.searchParams.get("url");
+      return nestedUrl ? normalizeDownloadUrl(nestedUrl) : null;
+    }
+
+    if (!EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname)) {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function dedupeDownloadLinks(links) {
+  const seen = new Set();
+  const uniqueLinks = [];
+
+  for (const link of links) {
+    if (seen.has(link.url)) {
+      continue;
+    }
+
+    seen.add(link.url);
+    uniqueLinks.push(link);
+  }
+
+  return uniqueLinks;
+}
+
+function extractBuyAnchorDownloadLinks(html) {
+  const anchors = html.match(/<a\b[^>]*>.*?<\/a>/gis) || [];
+  const links = [];
+
+  for (const anchor of anchors) {
     const text = stripHtml(anchor).toLowerCase();
     const href = readHtmlAttribute(anchor, "href");
 
-    return text.includes("buy") && hasDownloadLink(href);
-  });
+    if (!text.includes("buy")) {
+      continue;
+    }
+
+    links.push(...extractDownloadLinks(href, "buy_link"));
+  }
+
+  return links;
 }
 
 function stripHtml(value) {

@@ -46,7 +46,8 @@ export async function fetchSoundCloudMetadata(resolvedUrl: string): Promise<Meta
       artist: null,
       artworkUrl: null,
       status: "unknown",
-      rawFlag: "fetch_failed"
+      rawFlag: "fetch_failed",
+      downloadLinks: []
     };
   }
 }

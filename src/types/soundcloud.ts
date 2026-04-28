@@ -10,6 +10,13 @@ export type RawDownloadFlag =
 
 export type IntakeSource = "manual" | "share_sheet";
 
+export type DownloadLinkSource = "description" | "buy_link";
+
+export interface DownloadLink {
+  source: DownloadLinkSource;
+  url: string;
+}
+
 export interface IntakeRequest {
   source: IntakeSource;
   url: string;
@@ -25,6 +32,7 @@ export interface SoundCloudCheck {
   artworkUrl: string | null;
   status: DownloadStatus;
   rawFlag: RawDownloadFlag;
+  downloadLinks: DownloadLink[];
   checkedAt: string;
   note: string | null;
 }
@@ -35,4 +43,5 @@ export interface MetadataSnapshot {
   artworkUrl: string | null;
   status: DownloadStatus;
   rawFlag: RawDownloadFlag;
+  downloadLinks: DownloadLink[];
 }

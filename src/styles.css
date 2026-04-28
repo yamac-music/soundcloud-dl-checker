@@ -345,6 +345,64 @@ button:disabled {
   background: #b7791f;
 }
 
+.download-links {
+  margin-top: 12px;
+}
+
+.download-links-title {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.download-link-list {
+  display: grid;
+  gap: 8px;
+}
+
+.download-link-button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 43px;
+  padding: 8px 11px;
+  border: 1px solid #b9d5ff;
+  border-radius: 8px;
+  background: #f5f9ff;
+  color: #174ea6;
+  text-decoration: none;
+}
+
+.download-link-button span {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #dcecff;
+  color: #174ea6;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.download-link-button strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-link-button em {
+  color: #0f45a3;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .card-divider {
   height: 1px;
   margin: 16px 0 12px;
@@ -401,5 +459,21 @@ button:disabled {
   .artwork {
     width: 82px;
     height: 82px;
+  }
+
+  .download-link-button {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .download-link-button strong {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .download-link-button em {
+    justify-self: end;
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { buildIntakeRequest, extractSoundCloudUrl } from "@/services/shareIntake";
 import { checkSoundCloudUrl } from "@/services/soundcloud";
-import type { DownloadStatus, IntakeSource, MetadataSnapshot, SoundCloudCheck } from "@/types/soundcloud";
+import type { DownloadLink, DownloadStatus, IntakeSource, MetadataSnapshot, SoundCloudCheck } from "@/types/soundcloud";
 
 export function App() {
   const handledInitialUrl = useRef<string | null>(null);
@@ -131,6 +131,7 @@ function buildResult(
     artworkUrl: metadata.artworkUrl,
     status: metadata.status,
     rawFlag: metadata.rawFlag,
+    downloadLinks: metadata.downloadLinks ?? [],
     checkedAt: new Date().toISOString(),
     note: null
   };
@@ -151,12 +152,30 @@ function ResultContent({ record }: { record: SoundCloudCheck }) {
         </div>
       </div>
       <LargeStatus status={record.status} />
+      {record.downloadLinks.length ? <DownloadLinks links={record.downloadLinks} /> : null}
       <div className="card-divider" />
       <dl className="meta-rows">
         <MetaRow label="判定日時" value={formatLatestDate(record.checkedAt)} />
         <MetaRow label="判定根拠" value={formatRawFlag(record.rawFlag)} />
       </dl>
     </>
+  );
+}
+
+function DownloadLinks({ links }: { links: DownloadLink[] }) {
+  return (
+    <div className="download-links" aria-label="抽出したDLリンク">
+      <p className="download-links-title">抽出したDLリンク</p>
+      <div className="download-link-list">
+        {links.map((link) => (
+          <a className="download-link-button" href={link.url} key={link.url} rel="noreferrer" target="_blank">
+            <span>{formatDownloadLinkSource(link.source)}</span>
+            <strong>{shortenUrl(link.url)}</strong>
+            <em>開く ↗</em>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -219,6 +238,10 @@ function formatLatestDate(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatDownloadLinkSource(value: DownloadLink["source"]) {
+  return value === "buy_link" ? "Buy Link" : "説明欄";
 }
 
 function formatRawFlag(value: SoundCloudCheck["rawFlag"]) {

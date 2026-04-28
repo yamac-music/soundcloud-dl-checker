@@ -2,26 +2,25 @@
   "name": "soundcloud-dl-checker",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "type": "module",
   "scripts": {
-    "start": "expo start",
-    "ios": "expo run:ios",
-    "android": "expo run:android",
-    "web": "expo start --web",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "web:metadata-proxy": "node scripts/soundcloud-metadata-proxy.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^1.23.1",
-    "expo": "~53.0.0",
-    "expo-router": "~5.0.0",
-    "expo-status-bar": "^55.0.5",
     "react": "19.0.0",
-    "react-native": "0.79.0",
-    "react-native-safe-area-context": "^5.4.0",
-    "react-native-screens": "^4.10.0"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
-    "@types/react": "~19.0.10",
-    "typescript": "~5.8.3"
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "~5.8.3",
+    "vite": "^7.3.0"
   }
 }

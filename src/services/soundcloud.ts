@@ -1,33 +1,15 @@
-import { MetadataSnapshot } from "@/types/history";
+import { MetadataSnapshot } from "@/types/soundcloud";
 import { normalizeUrlCandidate } from "@/services/url";
+import { parseSoundCloudMetadata } from "@/services/soundcloudParser";
 
-function decodeHtmlEntity(value: string) {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+interface SoundCloudCheckResult {
+  resolvedUrl: string;
+  metadata: MetadataSnapshot;
 }
 
-function findMetaTag(html: string, key: string) {
-  const pattern = new RegExp(
-    `<meta[^>]+(?:property|name)=["']${key}["'][^>]+content=["']([^"']+)["'][^>]*>`,
-    "i"
-  );
-  const match = html.match(pattern);
-  return match ? decodeHtmlEntity(match[1]) : null;
-}
-
-function findJsonBoolean(html: string, key: string) {
-  const pattern = new RegExp(`"${key}":(true|false)`, "i");
-  const match = html.match(pattern);
-
-  if (!match) {
-    return "missing" as const;
-  }
-
-  return match[1] === "true";
+export async function checkSoundCloudUrl(sourceUrl: string): Promise<SoundCloudCheckResult> {
+  const normalizedUrl = normalizeUrlCandidate(sourceUrl);
+  return checkSoundCloudUrlWithProxy(normalizedUrl);
 }
 
 export async function resolveSoundCloudUrl(sourceUrl: string) {
@@ -57,24 +39,7 @@ export async function fetchSoundCloudMetadata(resolvedUrl: string): Promise<Meta
       }
     });
 
-    const html = await response.text();
-    const rawFlag = findJsonBoolean(html, "downloadable");
-
-    return {
-      title: findMetaTag(html, "og:title") || findMetaTag(html, "twitter:title"),
-      artist:
-        findMetaTag(html, "soundcloud:creator") ||
-        findMetaTag(html, "twitter:audio:artist_name") ||
-        findMetaTag(html, "author"),
-      artworkUrl: findMetaTag(html, "og:image"),
-      status:
-        rawFlag === true
-          ? "downloadable"
-          : rawFlag === false
-            ? "not_downloadable"
-            : "unknown",
-      rawFlag
-    };
+    return parseSoundCloudMetadata(await response.text());
   } catch {
     return {
       title: null,
@@ -86,3 +51,45 @@ export async function fetchSoundCloudMetadata(resolvedUrl: string): Promise<Meta
   }
 }
 
+async function checkSoundCloudUrlWithProxy(sourceUrl: string): Promise<SoundCloudCheckResult> {
+  const endpoint = `${getWebProxyBaseUrl()}/api/soundcloud/check?url=${encodeURIComponent(sourceUrl)}`;
+  let response: Response;
+
+  try {
+    response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
+  } catch {
+    throw new Error("判定用APIに接続できません。ローカル開発では別ターミナルで npm run web:metadata-proxy を起動してください。");
+  }
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || "判定用APIでエラーが発生しました。");
+  }
+
+  return response.json() as Promise<SoundCloudCheckResult>;
+}
+
+function getWebProxyBaseUrl() {
+  if (typeof window !== "undefined" && window.location.hostname) {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return window.location.origin;
+    }
+
+    return `${window.location.protocol}//${window.location.hostname}:8787`;
+  }
+
+  return "http://127.0.0.1:8787";
+}
+
+async function readErrorMessage(response: Response) {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error;
+  } catch {
+    return null;
+  }
+}

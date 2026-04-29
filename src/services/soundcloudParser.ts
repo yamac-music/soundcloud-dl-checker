@@ -17,6 +17,8 @@ const EXTERNAL_DOWNLOAD_HOSTS = new Set([
   "www.hypeddit.com",
   "toneden.io",
   "www.toneden.io",
+  "pumpyoursound.com",
+  "www.pumpyoursound.com",
   "dropbox.com",
   "www.dropbox.com",
   "drive.google.com",

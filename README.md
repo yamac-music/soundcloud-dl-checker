@@ -1,19 +1,46 @@
 # SoundCloud DL Checker
 
-SoundCloudの公開トラックURLを入力して、ダウンロード可能かどうかだけを判定するWebアプリです。
+SoundCloudの公開トラックURLから、DLできそうな導線があるかを確認するWebアプリです。
 
-## Scope
+SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入っている外部DLリンクを見て判定します。
+
+## できること
 
 - SoundCloud URLを手入力または貼り付けで受け取る
 - ブラウザのクエリパラメータ `url=` からURLを受け取る
 - `check=1` がある場合はURL読み込み後に自動で判定する
 - `on.soundcloud.com` 短縮URLを解決する
-- SoundCloud公開ページのHTML/埋め込みメタデータを確認する
-- 説明欄やBuy Link内のHypedditなどの外部DLリンクも、ダウンロード可能のシグナルとして扱う
-- 抽出できた外部DLリンクは結果に表示し、スマホから直接開けるようにする
+- SoundCloud公開ページのメタデータから `downloadable=true` を確認する
+- 説明欄やBuy Link内の既知の外部DLリンクを検出する
+- 見つけた外部DLリンクを結果に表示し、スマホから直接開けるようにする
 - 結果は `downloadable` / `not_downloadable` / `unknown` に分類する
 
-SoundCloudからの音源ファイル取得、ファイル保存、非公開API利用、判定履歴の保存は行いません。
+## できないこと
+
+- SoundCloudネイティブDLの100DL制限に達しているかどうかは判定しない
+- 対応リストにない外部DLサイトは検出しない
+- SoundCloudや外部サイトから音源ファイルを取得・保存しない
+- 非公開APIの利用や、判定履歴の保存は行わない
+
+## 対応している外部DLリンク
+
+説明欄またはBuy Linkに次のリンクが含まれている場合、外部DLリンクとして検出します。`www.`付きのURLにも対応しています。
+
+### DLゲートサイト
+
+- Hypeddit: `hypeddit.com`
+- ToneDen: `toneden.io`
+- Pump Your Sound: `pumpyoursound.com`
+
+### 保存先
+
+- Dropbox: `dropbox.com`
+- Google Drive: `drive.google.com`
+- MediaFire: `mediafire.com`
+
+### SoundCloudの外部遷移URL
+
+`gate.sc` は保存先ではありません。SoundCloudの外部遷移URLとして使われている場合だけ、URL内の `url=` を展開し、展開先が上記の対応サービスなら検出します。
 
 ## Tech Stack
 

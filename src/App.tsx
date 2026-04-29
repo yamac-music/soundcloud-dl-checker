@@ -164,12 +164,18 @@ function ResultContent({ record }: { record: SoundCloudCheck }) {
 
 function DownloadLinks({ links }: { links: DownloadLink[] }) {
   return (
-    <div className="download-links" aria-label="抽出したDLリンク">
-      <p className="download-links-title">抽出したDLリンク</p>
+    <div className="download-links" aria-label="抽出したリンク">
+      <p className="download-links-title">抽出したリンク</p>
       <div className="download-link-list">
         {links.map((link) => (
-          <a className="download-link-button" href={link.url} key={link.url} rel="noreferrer" target="_blank">
-            <span>{formatDownloadLinkSource(link.source)}</span>
+          <a
+            className={`download-link-button link-${link.kind}`}
+            href={link.url}
+            key={link.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>{formatDownloadLinkSource(link.source, link.kind)}</span>
             <strong>{shortenUrl(link.url)}</strong>
             <em>開く ↗</em>
           </a>
@@ -203,9 +209,10 @@ function Artwork({ uri }: { uri: string | null }) {
 
 function LargeStatus({ status }: { status: DownloadStatus }) {
   const isOk = status === "downloadable";
+  const needsReview = status === "needs_review";
   const isUnknown = status === "unknown";
-  const label = isOk ? "ダウンロード可能" : isUnknown ? "判定できません" : "ダウンロード不可";
-  const icon = isOk ? "✓" : isUnknown ? "?" : "×";
+  const label = isOk ? "ダウンロード可能" : needsReview ? "要確認" : isUnknown ? "判定できません" : "ダウンロード不可";
+  const icon = isOk ? "✓" : needsReview ? "⚠" : isUnknown ? "?" : "×";
 
   return (
     <div className={`large-status status-${status}`}>
@@ -240,7 +247,11 @@ function formatLatestDate(value: string) {
   });
 }
 
-function formatDownloadLinkSource(value: DownloadLink["source"]) {
+function formatDownloadLinkSource(value: DownloadLink["source"], kind?: DownloadLink["kind"]) {
+  if (value === "buy_link" && kind === "unverified_buy_link") {
+    return "Buy Link / 要確認";
+  }
+
   return value === "buy_link" ? "Buy Link" : "説明欄";
 }
 
@@ -255,6 +266,10 @@ function formatRawFlag(value: SoundCloudCheck["rawFlag"]) {
 
   if (value === "buy_link") {
     return "Buy Linkの外部DLリンク";
+  }
+
+  if (value === "buy_link_unverified") {
+    return "Buy Linkが外部サイトのため要確認";
   }
 
   if (value === false) {

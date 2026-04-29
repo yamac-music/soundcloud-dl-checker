@@ -345,6 +345,17 @@ button:disabled {
   background: #b7791f;
 }
 
+.status-needs_review {
+  border-color: #f1d78c;
+  background: #fff7d6;
+  color: #8a5a00;
+}
+
+.status-needs_review .status-circle {
+  background: #b7791f;
+  font-size: 16px;
+}
+
 .download-links {
   margin-top: 12px;
 }
@@ -401,6 +412,21 @@ button:disabled {
   font-style: normal;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.download-link-button.link-unverified_buy_link {
+  border-color: #f1d78c;
+  background: #fffaf0;
+  color: #7c4a03;
+}
+
+.download-link-button.link-unverified_buy_link span {
+  background: #fdecc8;
+  color: #7c4a03;
+}
+
+.download-link-button.link-unverified_buy_link em {
+  color: #7c4a03;
 }
 
 .card-divider {

@@ -1,9 +1,10 @@
-export type DownloadStatus = "downloadable" | "not_downloadable" | "unknown";
+export type DownloadStatus = "downloadable" | "not_downloadable" | "needs_review" | "unknown";
 
 export type RawDownloadFlag =
   | boolean
   | "external_link"
   | "buy_link"
+  | "buy_link_unverified"
   | "missing"
   | "fetch_failed"
   | "redirect_failed";
@@ -11,8 +12,10 @@ export type RawDownloadFlag =
 export type IntakeSource = "manual" | "share_sheet";
 
 export type DownloadLinkSource = "description" | "buy_link";
+export type DownloadLinkKind = "download" | "unverified_buy_link";
 
 export interface DownloadLink {
+  kind: DownloadLinkKind;
   source: DownloadLinkSource;
   url: string;
 }

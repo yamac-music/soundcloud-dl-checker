@@ -3,6 +3,7 @@
 SoundCloudの公開トラックURLから、DLできそうな導線があるかを確認するWebアプリです。
 
 SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入っている外部DLリンクを見て判定します。
+Buy Linkが既知のDLホスト以外を指している場合は、ブログや特設サイトなどの可能性があるため要確認として表示します。
 
 ## できること
 
@@ -12,8 +13,9 @@ SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入って
 - `on.soundcloud.com` 短縮URLを解決する
 - SoundCloud公開ページのメタデータから `downloadable=true` を確認する
 - 説明欄やBuy Link内の既知の外部DLリンクを検出する
+- Buy Link内の未知の外部サイトを要確認として表示する
 - 見つけた外部DLリンクを結果に表示し、スマホから直接開けるようにする
-- 結果は `downloadable` / `not_downloadable` / `unknown` に分類する
+- 結果は `downloadable` / `not_downloadable` / `needs_review` / `unknown` に分類する
 
 ## できないこと
 
@@ -25,6 +27,7 @@ SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入って
 ## 対応している外部DLリンク
 
 説明欄またはBuy Linkに次のリンクが含まれている場合、外部DLリンクとして検出します。`www.`付きのURLにも対応しています。
+Buy Linkに下記以外のURLが入っている場合は、DL可能とは断定せず `needs_review` として扱います。
 
 ### DLゲートサイト
 
@@ -124,5 +127,5 @@ SoundCloudの共有リンクに含まれる `?in=...`、`si=...`、`utm_*` な�
 ## Known Risks
 
 - SoundCloud HTML構造は変わる可能性があるため、取得や解析に失敗した場合は `unknown` を返します。
-- 外部DLリンク判定と表示は説明欄またはBuy Linkに含まれる既知ホストの検出です。すべての配布導線を網羅するものではありません。
+- 外部DLリンク判定と表示は説明欄またはBuy Linkに含まれる既知ホストの検出です。Buy Linkが未知ホストの場合は、ブログや特設サイトなどを経由している可能性があるため `needs_review` を返します。
 - SoundCloud側のアクセス制限やHTML構造変更により、Cloudflare Pages Functionからの取得が失敗する可能性があります。

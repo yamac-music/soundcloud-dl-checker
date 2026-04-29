@@ -35,12 +35,13 @@ export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
       : findJsonBoolean(html, "downloadable");
   const downloadLinks = [
     ...extractDownloadLinks(hydrationTrack?.description, "description"),
-    ...extractDownloadLinks(hydrationTrack?.purchase_url, "buy_link"),
+    ...extractBuyLinks(hydrationTrack?.purchase_url),
     ...extractBuyAnchorDownloadLinks(html)
   ];
   const uniqueDownloadLinks = dedupeDownloadLinks(downloadLinks);
-  const hasBuyDownloadLink = uniqueDownloadLinks.some((link) => link.source === "buy_link");
-  const hasExternalDownloadLink = uniqueDownloadLinks.some((link) => link.source === "description");
+  const hasBuyDownloadLink = uniqueDownloadLinks.some((link) => link.source === "buy_link" && link.kind === "download");
+  const hasExternalDownloadLink = uniqueDownloadLinks.some((link) => link.source === "description" && link.kind === "download");
+  const hasUnverifiedBuyLink = uniqueDownloadLinks.some((link) => link.kind === "unverified_buy_link");
   const effectiveRawFlag =
     rawFlag === true
       ? true
@@ -48,7 +49,9 @@ export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
         ? "buy_link"
         : hasExternalDownloadLink
           ? "external_link"
-          : rawFlag;
+          : hasUnverifiedBuyLink
+            ? "buy_link_unverified"
+            : rawFlag;
 
   return {
     title:
@@ -66,6 +69,8 @@ export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
     status:
       effectiveRawFlag === true || effectiveRawFlag === "external_link" || effectiveRawFlag === "buy_link"
         ? "downloadable"
+        : effectiveRawFlag === "buy_link_unverified"
+          ? "needs_review"
         : effectiveRawFlag === false
           ? "not_downloadable"
           : "unknown",
@@ -86,7 +91,30 @@ function extractDownloadLinks(value: string | null | undefined, source: Download
     const url = normalizeDownloadUrl(match);
 
     if (url) {
-      links.push({ source, url });
+      links.push({ kind: "download", source, url });
+    }
+  }
+
+  return links;
+}
+
+function extractBuyLinks(value: string | null | undefined): DownloadLink[] {
+  if (!value) {
+    return [];
+  }
+
+  const matches = decodeHtmlEntity(value).match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  const links: DownloadLink[] = [];
+
+  for (const match of matches) {
+    const normalized = normalizeBuyUrl(match);
+
+    if (normalized) {
+      links.push({
+        kind: normalized.isDownloadHost ? "download" : "unverified_buy_link",
+        source: "buy_link",
+        url: normalized.url
+      });
     }
   }
 
@@ -94,19 +122,27 @@ function extractDownloadLinks(value: string | null | undefined, source: Download
 }
 
 function normalizeDownloadUrl(value: string): string | null {
+  const normalized = normalizeUrl(value);
+  return normalized?.isDownloadHost ? normalized.url : null;
+}
+
+function normalizeBuyUrl(value: string) {
+  return normalizeUrl(value);
+}
+
+function normalizeUrl(value: string): { isDownloadHost: boolean; url: string } | null {
   try {
     const url = new URL(value.replace(/[),.;!?]+$/g, ""));
 
     if (SOUNDCLOUD_GATE_HOSTS.has(url.hostname)) {
       const nestedUrl = url.searchParams.get("url");
-      return nestedUrl ? normalizeDownloadUrl(nestedUrl) : null;
+      return nestedUrl ? normalizeUrl(nestedUrl) : null;
     }
 
-    if (!EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname)) {
-      return null;
-    }
-
-    return url.toString();
+    return {
+      isDownloadHost: EXTERNAL_DOWNLOAD_HOSTS.has(url.hostname),
+      url: url.toString()
+    };
   } catch {
     return null;
   }
@@ -140,7 +176,7 @@ function extractBuyAnchorDownloadLinks(html: string) {
       continue;
     }
 
-    links.push(...extractDownloadLinks(href, "buy_link"));
+    links.push(...extractBuyLinks(href));
   }
 
   return links;

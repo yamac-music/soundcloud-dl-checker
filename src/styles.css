@@ -462,6 +462,52 @@ button:disabled {
   text-align: right;
 }
 
+.support-box {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #eceff3;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.support-box p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 19px;
+  text-align: center;
+}
+
+.support-button {
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 15px;
+  border: 1px solid #e7c300;
+  border-radius: 8px;
+  background: #ffdd00;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 5px 10px rgb(17 24 39 / 8%);
+}
+
+.support-button:focus-visible {
+  outline: 3px solid rgb(255 221 0 / 45%);
+  outline-offset: 2px;
+}
+
+.support-button span:first-child {
+  font-size: 18px;
+  line-height: 1;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

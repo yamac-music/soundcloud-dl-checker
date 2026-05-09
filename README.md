@@ -5,6 +5,12 @@ SoundCloudの公開トラックURLから、DLできそうな導線があるか�
 SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入っている外部DLリンクを見て判定します。
 Buy Linkが既知のDLホスト以外を指している場合は、ブログや特設サイトなどの可能性があるため要確認として表示します。
 
+## Support
+
+このツールが役に立った場合は、開発と運営を支援できます。
+
+[Buy me a coffee](https://buymeacoffee.com/yamac)
+
 ## できること
 
 - SoundCloud URLを手入力または貼り付けで受け取る

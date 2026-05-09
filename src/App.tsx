@@ -3,6 +3,8 @@ import { buildIntakeRequest, extractSoundCloudUrl } from "@/services/shareIntake
 import { checkSoundCloudUrl } from "@/services/soundcloud";
 import type { DownloadLink, DownloadStatus, IntakeSource, MetadataSnapshot, SoundCloudCheck } from "@/types/soundcloud";
 
+const SUPPORT_URL = "https://buymeacoffee.com/yamac";
+
 export function App() {
   const handledInitialUrl = useRef<string | null>(null);
   const [url, setUrl] = useState("");
@@ -110,6 +112,8 @@ export function App() {
           <h2 id="result-title">判定結果</h2>
           {result ? <ResultContent record={result} /> : <p className="empty-text">URLを判定すると、ダウンロード可否だけをここに表示します。</p>}
         </section>
+
+        <SupportLink />
       </section>
     </main>
   );
@@ -182,6 +186,18 @@ function DownloadLinks({ links }: { links: DownloadLink[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function SupportLink() {
+  return (
+    <aside className="support-box" aria-label="開発支援">
+      <p>役に立ったら、開発と運営を支援できます。</p>
+      <a className="support-button" href={SUPPORT_URL}>
+        <span aria-hidden="true">☕</span>
+        <span>Buy me a coffee</span>
+      </a>
+    </aside>
   );
 }
 

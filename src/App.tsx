@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { buildIntakeRequest, extractSoundCloudUrl } from "@/services/shareIntake";
 import { checkSoundCloudUrl } from "@/services/soundcloud";
-import type { DownloadLink, DownloadStatus, IntakeSource, MetadataSnapshot, SoundCloudCheck } from "@/types/soundcloud";
+import {
+  clearHistory,
+  createHistoryEntry,
+  loadHistory,
+  removeHistoryEntry,
+  saveHistory,
+  upsertHistory
+} from "@/services/history";
+import type {
+  DownloadLink,
+  DownloadStatus,
+  HistoryEntry,
+  IntakeSource,
+  MetadataSnapshot,
+  SoundCloudCheck
+} from "@/types/soundcloud";
 
 const SUPPORT_URL = "https://buymeacoffee.com/yamac";
 
@@ -11,6 +26,9 @@ export function App() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SoundCloudCheck | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+  const historyRef = useRef(history);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -39,6 +57,7 @@ export function App() {
       const nextResult = buildResult(intake.source, intake.url, check.resolvedUrl, check.metadata);
       setUrl(nextResult.sourceUrl);
       setResult(nextResult);
+      updateHistory(upsertHistory(historyRef.current, createHistoryEntry(nextResult)));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "判定に失敗しました。";
       setError(message);
@@ -46,6 +65,30 @@ export function App() {
     } finally {
       setChecking(false);
     }
+  }
+
+  function updateHistory(nextHistory: HistoryEntry[]) {
+    historyRef.current = nextHistory;
+    setHistory(nextHistory);
+    setHistoryMessage(
+      saveHistory(nextHistory) ? null : "判定履歴をこのブラウザに保存できませんでした。判定機能は引き続き利用できます。"
+    );
+  }
+
+  function deleteHistoryEntry(resolvedUrl: string) {
+    updateHistory(removeHistoryEntry(historyRef.current, resolvedUrl));
+  }
+
+  function deleteAllHistory() {
+    if (!window.confirm("判定履歴をすべて削除しますか？")) {
+      return;
+    }
+
+    historyRef.current = [];
+    setHistory([]);
+    setHistoryMessage(
+      clearHistory() ? null : "判定履歴をこのブラウザから削除できませんでした。"
+    );
   }
 
   return (
@@ -113,9 +156,112 @@ export function App() {
           {result ? <ResultContent record={result} /> : <p className="empty-text">URLを判定すると、ダウンロード可否だけをここに表示します。</p>}
         </section>
 
+        <HistorySection
+          entries={history}
+          message={historyMessage}
+          onClear={deleteAllHistory}
+          onRemove={deleteHistoryEntry}
+        />
+
         <SupportLink />
       </section>
     </main>
+  );
+}
+
+function HistorySection({
+  entries,
+  message,
+  onClear,
+  onRemove
+}: {
+  entries: HistoryEntry[];
+  message: string | null;
+  onClear: () => void;
+  onRemove: (resolvedUrl: string) => void;
+}) {
+  return (
+    <section className="history-section" aria-labelledby="history-title">
+      <div className="history-heading">
+        <h2 id="history-title">判定履歴{entries.length ? `（${entries.length}件）` : ""}</h2>
+        {entries.length ? (
+          <button className="clear-history-button" onClick={onClear} type="button">
+            全削除
+          </button>
+        ) : null}
+      </div>
+      <p className="history-note">判定履歴はこのブラウザに保存されます。</p>
+      {message ? (
+        <p className="history-message" role="status">
+          {message}
+        </p>
+      ) : null}
+      {entries.length ? (
+        <ul className="history-list">
+          {entries.map((entry) => (
+            <li className="history-item" key={entry.resolvedUrl}>
+              <div className="history-track">
+                <HistoryArtwork entry={entry} />
+                <div className="history-track-body">
+                  <a className="history-track-link" href={entry.resolvedUrl} rel="noreferrer" target="_blank">
+                    {entry.title || "タイトル未取得"}
+                    <span aria-hidden="true"> ↗</span>
+                  </a>
+                  <p>{entry.artist || "アーティスト未取得"}</p>
+                </div>
+                <button
+                  aria-label={`${entry.title || "この曲"}の履歴を削除`}
+                  className="delete-history-button"
+                  onClick={() => onRemove(entry.resolvedUrl)}
+                  type="button"
+                >
+                  削除
+                </button>
+              </div>
+              <div className="history-summary">
+                <StatusBadge status={entry.status} />
+                <time dateTime={entry.checkedAt}>{formatLatestDate(entry.checkedAt)}</time>
+              </div>
+              {entry.downloadLinks.length ? <HistoryDownloadLinks links={entry.downloadLinks} /> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="history-empty">判定履歴はまだありません。</p>
+      )}
+    </section>
+  );
+}
+
+function HistoryArtwork({ entry }: { entry: HistoryEntry }) {
+  if (entry.artworkUrl) {
+    return <img alt="" className="history-artwork" loading="lazy" src={entry.artworkUrl} />;
+  }
+
+  return <div className="history-artwork history-artwork-placeholder" aria-hidden="true">♪</div>;
+}
+
+function StatusBadge({ status }: { status: DownloadStatus }) {
+  const labels: Record<DownloadStatus, string> = {
+    downloadable: "✓ DL可能",
+    not_downloadable: "× DL不可",
+    needs_review: "⚠ 要確認",
+    unknown: "? 判定不能"
+  };
+
+  return <span className={`history-status status-${status}`}>{labels[status]}</span>;
+}
+
+function HistoryDownloadLinks({ links }: { links: DownloadLink[] }) {
+  return (
+    <div className="history-download-links" aria-label="検出済みの外部ダウンロードリンク">
+      {links.map((link) => (
+        <a href={link.url} key={`${link.source}-${link.url}`} rel="noreferrer" target="_blank">
+          {formatDownloadLinkSource(link.source, link.kind)}を開く
+          <span aria-hidden="true"> ↗</span>
+        </a>
+      ))}
+    </div>
   );
 }
 

@@ -40,6 +40,17 @@ export interface SoundCloudCheck {
   note: string | null;
 }
 
+export interface HistoryEntry {
+  resolvedUrl: string;
+  title: string | null;
+  artist: string | null;
+  artworkUrl: string | null;
+  status: DownloadStatus;
+  rawFlag: RawDownloadFlag;
+  downloadLinks: DownloadLink[];
+  checkedAt: string;
+}
+
 export interface MetadataSnapshot {
   title: string | null;
   artist: string | null;

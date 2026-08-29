@@ -125,6 +125,35 @@ test("履歴を書き込めなくても判定結果を表示する", async ({ pa
   await expect(page.getByText("判定履歴をこのブラウザに保存できませんでした。")).toBeVisible();
 });
 
+test("同じブラウザの別タブで追加した履歴を相互に反映する", async ({ context, page }) => {
+  const secondPage = await context.newPage();
+  await mockCheckApi(page, () => checkResponse({
+    resolvedUrl: "https://soundcloud.com/example/track-a",
+    title: "Track A"
+  }));
+  await mockCheckApi(secondPage, () => checkResponse({
+    resolvedUrl: "https://soundcloud.com/example/track-b",
+    title: "Track B"
+  }));
+
+  await Promise.all([page.goto("/"), secondPage.goto("/")]);
+  await runCheck(page, "https://soundcloud.com/example/track-a");
+
+  await expect(secondPage.getByRole("heading", { name: "判定履歴（1件）" })).toBeVisible();
+  await expect(secondPage.getByRole("link", { name: /Track A/ })).toBeVisible();
+
+  await runCheck(secondPage, "https://soundcloud.com/example/track-b");
+
+  for (const currentPage of [page, secondPage]) {
+    await expect(currentPage.getByRole("heading", { name: "判定履歴（2件）" })).toBeVisible();
+    await expect(currentPage.getByRole("link", { name: /Track A/ })).toBeVisible();
+    await expect(currentPage.getByRole("link", { name: /Track B/ })).toBeVisible();
+  }
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "判定履歴（2件）" })).toBeVisible();
+});
+
 async function runCheck(page: Page, url: string) {
   await page.getByLabel("URLを貼り付け").fill(url);
   await page.getByRole("button", { name: "判定する" }).click();
@@ -141,6 +170,7 @@ async function mockCheckApi(page: Page, response: () => object) {
 }
 
 function checkResponse({
+  resolvedUrl = "https://soundcloud.com/example/track",
   title,
   status = "downloadable",
   downloadLinks = [
@@ -151,12 +181,13 @@ function checkResponse({
     }
   ]
 }: {
+  resolvedUrl?: string;
   title: string;
   status?: "downloadable" | "not_downloadable";
   downloadLinks?: Array<{ kind: "download"; source: "description"; url: string }>;
 }) {
   return {
-    resolvedUrl: "https://soundcloud.com/example/track",
+    resolvedUrl,
     metadata: {
       title,
       artist: "Example artist",

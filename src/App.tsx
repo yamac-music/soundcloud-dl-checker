@@ -4,6 +4,7 @@ import { checkSoundCloudUrl } from "@/services/soundcloud";
 import {
   clearHistory,
   createHistoryEntry,
+  HISTORY_STORAGE_KEY,
   loadHistory,
   removeHistoryEntry,
   saveHistory,
@@ -29,6 +30,22 @@ export function App() {
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
   const historyRef = useRef(history);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    function syncHistoryFromStorage(event: StorageEvent) {
+      if (event.key !== HISTORY_STORAGE_KEY && event.key !== null) {
+        return;
+      }
+
+      const nextHistory = loadHistory();
+      historyRef.current = nextHistory;
+      setHistory(nextHistory);
+      setHistoryMessage(null);
+    }
+
+    window.addEventListener("storage", syncHistoryFromStorage);
+    return () => window.removeEventListener("storage", syncHistoryFromStorage);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

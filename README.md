@@ -2,6 +2,8 @@
 
 SoundCloudの公開トラックURLから、DLできそうな導線があるかを確認するWebアプリです。
 
+[公開アプリを開く](https://soundcloud-dl-checker.pages.dev/)
+
 SoundCloud公式のネイティブDL設定と、説明欄やBuy Linkに入っている外部DLリンクを見て判定します。
 Buy Linkが既知のDLホスト以外を指している場合は、ブログや特設サイトなどの可能性があるため要確認として表示します。
 

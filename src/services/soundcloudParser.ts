@@ -192,7 +192,22 @@ function decodeHtmlEntity(value: string) {
     .replace(/&quot;/g, "\"")
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (match, hexadecimal: string | undefined, decimal: string | undefined) => {
+      const encodedCodePoint = hexadecimal ?? decimal;
+
+      if (!encodedCodePoint) {
+        return match;
+      }
+
+      const codePoint = Number.parseInt(encodedCodePoint, hexadecimal ? 16 : 10);
+
+      if (codePoint <= 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+        return match;
+      }
+
+      return String.fromCodePoint(codePoint);
+    });
 }
 
 function findMetaTag(html: string, key: string) {

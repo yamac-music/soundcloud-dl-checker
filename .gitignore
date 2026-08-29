@@ -3,6 +3,8 @@ dist/
 web-build/
 coverage/
 artifacts/
+playwright-report/
+test-results/
 tmp_playwright_*.js
 *.log
 .DS_Store

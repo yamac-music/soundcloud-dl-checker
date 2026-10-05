@@ -29,6 +29,26 @@ test("異なる外部DLリンクは重複として除去しない", () => {
   expect(metadata.downloadLinks.map((link) => link.url)).toEqual([firstUrl, secondUrl]);
 });
 
+test("gate.scの過剰なネストは安全に打ち切る", () => {
+  const nestedGateUrl = wrapGateUrl(6, "https://drive.google.com/file/d/example/view");
+  const metadata = parseSoundCloudMetadata(createTrackHtml(nestedGateUrl, []));
+
+  expect(metadata.downloadLinks).toEqual([]);
+});
+
+test("正常なgate.sc URLは外部DLリンクへ展開する", () => {
+  const nestedGateUrl = wrapGateUrl(2, "https://drive.google.com/file/d/example/view");
+  const metadata = parseSoundCloudMetadata(createTrackHtml(nestedGateUrl, []));
+
+  expect(metadata.downloadLinks).toEqual([
+    {
+      kind: "download",
+      source: "buy_link",
+      url: "https://drive.google.com/file/d/example/view"
+    }
+  ]);
+});
+
 function createTrackHtml(purchaseUrl: string, anchorUrls: string[]) {
   const hydration = JSON.stringify([
     {
@@ -43,4 +63,11 @@ function createTrackHtml(purchaseUrl: string, anchorUrls: string[]) {
   const anchors = anchorUrls.map((url) => `<a href="${url}">Buy</a>`).join("");
 
   return `<script>window.__sc_hydration = ${hydration};</script>${anchors}`;
+}
+
+function wrapGateUrl(depth: number, target: string) {
+  return Array.from({ length: depth }).reduce(
+    (url) => `https://gate.sc/?url=${encodeURIComponent(url)}`,
+    target
+  );
 }

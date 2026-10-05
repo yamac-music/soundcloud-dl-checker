@@ -18,6 +18,7 @@ const EXTERNAL_DOWNLOAD_HOSTS = new Set([
   "www.mediafire.com"
 ]);
 const SOUNDCLOUD_GATE_HOSTS = new Set(["gate.sc", "www.gate.sc"]);
+const MAX_GATE_UNWRAP_DEPTH = 5;
 
 const server = createServer(async (request, response) => {
   setCorsHeaders(response);
@@ -234,13 +235,17 @@ function normalizeBuyUrl(value) {
   return normalizeUrl(value);
 }
 
-function normalizeUrl(value) {
+function normalizeUrl(value, gateDepth = 0) {
   try {
     const url = new URL(value.replace(/[),.;!?]+$/g, ""));
 
     if (SOUNDCLOUD_GATE_HOSTS.has(url.hostname)) {
+      if (gateDepth >= MAX_GATE_UNWRAP_DEPTH) {
+        return null;
+      }
+
       const nestedUrl = url.searchParams.get("url");
-      return nestedUrl ? normalizeUrl(nestedUrl) : null;
+      return nestedUrl ? normalizeUrl(nestedUrl, gateDepth + 1) : null;
     }
 
     return {

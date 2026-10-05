@@ -26,6 +26,7 @@ const EXTERNAL_DOWNLOAD_HOSTS = new Set([
   "www.mediafire.com"
 ]);
 const SOUNDCLOUD_GATE_HOSTS = new Set(["gate.sc", "www.gate.sc"]);
+const MAX_GATE_UNWRAP_DEPTH = 5;
 
 export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
   const hydrationTrack = findHydrationTrack(html);
@@ -130,13 +131,17 @@ function normalizeBuyUrl(value: string) {
   return normalizeUrl(value);
 }
 
-function normalizeUrl(value: string): { isDownloadHost: boolean; url: string } | null {
+function normalizeUrl(value: string, gateDepth = 0): { isDownloadHost: boolean; url: string } | null {
   try {
     const url = new URL(value.replace(/[),.;!?]+$/g, ""));
 
     if (SOUNDCLOUD_GATE_HOSTS.has(url.hostname)) {
+      if (gateDepth >= MAX_GATE_UNWRAP_DEPTH) {
+        return null;
+      }
+
       const nestedUrl = url.searchParams.get("url");
-      return nestedUrl ? normalizeUrl(nestedUrl) : null;
+      return nestedUrl ? normalizeUrl(nestedUrl, gateDepth + 1) : null;
     }
 
     return {

@@ -31,6 +31,7 @@ SoundCloudの公開トラックURLを貼り付けると、その曲をDLでき�
 
 - SoundCloudのURLを手入力または貼り付けで受け取ります
 - ページURLのクエリパラメータ `url=` からも受け取れます。`check=1` を付けると、読み込み後に自動で判定します（[URLパラメータ](#urlパラメータ)を参照）
+- `www.soundcloud.com` や `m.soundcloud.com` のURLも受け付けます
 - `on.soundcloud.com` の短縮URLは、元のトラックURLに解決してから判定します
 
 ### 判定
@@ -45,6 +46,7 @@ SoundCloudの公開トラックURLを貼り付けると、その曲をDLでき�
 
 ## できないこと
 
+- プレイリストやプロフィールのURLは判定しません。1曲ずつ判定します
 - SoundCloud公式DLの100DL制限に達しているかどうかは判定しません
 - 対応リストにない外部DLサイトは検出しません
 - SoundCloudや外部サイトから音源ファイルを取得・保存しません
@@ -109,7 +111,15 @@ SoundCloudの共有リンクに付く `?in=...`、`si=...`、`utm_*` などの�
 - Cloudflare Pages
 - Cloudflare Pages Functions
 
-SoundCloudのページはブラウザから直接取得しにくいため、ページの取得とメタデータの解析はサーバー側で行います。本番ではCloudflare Pages Function（`/api/soundcloud/check`）が、ローカル開発ではNodeのプロキシがこの処理を担当します。
+SoundCloudのページはブラウザから直接取得しにくいため、ページの取得とメタデータの解析はサーバー側の判定API（`/api/soundcloud/check`）で行います。判定APIの本体はCloudflare Pages Functionで、ローカル開発ではViteの開発サーバーが同じFunctionを呼び出します。
+
+### SoundCloudへの負荷を抑える仕組み
+
+- トラック（1曲）のURL以外は、SoundCloudへ問い合わせる前に断ります
+- 1回の判定でSoundCloudのページを取得するのは1回だけです。短縮URLの転送もこの取得の中で追い、SoundCloud以外のサイトへは移動しません
+- SoundCloudの応答は8秒で打ち切ります
+- 同じURLの判定結果は10分間キャッシュし、その間はSoundCloudへ問い合わせません
+- 判定APIは同じサイトの画面からだけ使えます。他サイトのページからの呼び出しは断ります
 
 ### ファイル構成
 
@@ -122,9 +132,10 @@ SoundCloudのページはブラウザから直接取得しにくいため、ペ�
 | `src/services/soundcloud.ts` | 判定APIの呼び出し |
 | `src/services/soundcloudParser.ts` | SoundCloudのHTMLからメタデータを解析する |
 | `src/services/history.ts` | 判定履歴の保存・読み込み・削除 |
+| `src/server/soundcloudCheck.ts` | SoundCloudのページ取得と判定（判定APIの中身） |
 | `src/types/soundcloud.ts` | 判定に関する型定義 |
-| `functions/api/soundcloud/check.ts` | 本番用の判定API（Cloudflare Pages Function） |
-| `scripts/soundcloud-metadata-proxy.mjs` | ローカル開発用の判定API（Nodeプロキシ） |
+| `functions/api/soundcloud/check.ts` | 判定API（Cloudflare Pages Function）。入力の確認とキャッシュ |
+| `vite.config.ts` | 開発サーバーで判定APIを動かす設定を含む |
 
 ## ローカル開発
 
@@ -134,27 +145,17 @@ SoundCloudのページはブラウザから直接取得しにくいため、ペ�
 npm install
 ```
 
-### 2. 判定用のプロキシを起動する
-
-ローカルでは、判定APIとしてNodeのプロキシを使います。プロキシは `http://127.0.0.1:8787/api/soundcloud/check` で動きます。
-
-```sh
-npm run web:metadata-proxy
-```
-
-### 3. Webアプリを起動する
-
-別のターミナルで次を実行します。
+### 2. Webアプリを起動する
 
 ```sh
 npm run dev
 ```
 
-Viteが表示したURLをブラウザで開き、SoundCloudの公開トラックURLを貼り付けて「判定する」を押します。
+Viteが表示したURLをブラウザで開き、SoundCloudの公開トラックURLを貼り付けて「判定する」を押します。判定APIも同じ開発サーバーで動くため、別のプロセスを起動する必要はありません。同じネットワークのスマホから試す場合は `npm run dev -- --host` で起動します。
 
-### E2Eテスト
+### テスト
 
-履歴の操作を含むブラウザ操作のE2Eテストを実行します。ローカルではGoogle Chromeを使います。
+履歴の操作を含むブラウザ操作のE2Eテストと、判定APIのテストを実行します。ローカルではGoogle Chromeを使います。Chromeがない場合は、`npx playwright install chromium` のあとに環境変数 `CI=1` を付けて実行します。
 
 ```sh
 npm run test:e2e

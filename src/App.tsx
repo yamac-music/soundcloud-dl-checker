@@ -170,7 +170,7 @@ export function App() {
 
         <section className="result-card" aria-labelledby="result-title">
           <h2 id="result-title">判定結果</h2>
-          {result ? <ResultContent record={result} /> : <p className="empty-text">URLを判定すると、ダウンロード可否だけをここに表示します。</p>}
+          {result ? <ResultContent record={result} /> : <p className="empty-text">URLを判定すると、ダウンロード可否と見つかったリンクをここに表示します。</p>}
         </section>
 
         <HistorySection
@@ -289,7 +289,6 @@ function buildResult(
   metadata: MetadataSnapshot
 ): SoundCloudCheck {
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     source,
     sourceUrl,
     resolvedUrl,
@@ -299,8 +298,7 @@ function buildResult(
     status: metadata.status,
     rawFlag: metadata.rawFlag,
     downloadLinks: metadata.downloadLinks ?? [],
-    checkedAt: new Date().toISOString(),
-    note: null
+    checkedAt: new Date().toISOString()
   };
 }
 
@@ -457,14 +455,6 @@ function formatRawFlag(value: SoundCloudCheck["rawFlag"]) {
 
   if (value === "missing") {
     return "公開メタデータなし";
-  }
-
-  if (value === "fetch_failed") {
-    return "取得失敗";
-  }
-
-  if (value === "redirect_failed") {
-    return "短縮URLの解決失敗";
   }
 
   return "不明";

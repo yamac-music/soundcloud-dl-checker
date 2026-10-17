@@ -1,6 +1,7 @@
 import { MetadataSnapshot } from "@/types/soundcloud";
-import { normalizeUrlCandidate } from "@/services/url";
-import { parseSoundCloudMetadata } from "@/services/soundcloudParser";
+import { isShortSoundCloudUrl, isSoundCloudTrackUrl, normalizeUrlCandidate, TRACK_URL_REQUIRED_MESSAGE } from "@/services/url";
+
+const CHECK_ENDPOINT = "/api/soundcloud/check";
 
 interface SoundCloudCheckResult {
   resolvedUrl: string;
@@ -9,61 +10,22 @@ interface SoundCloudCheckResult {
 
 export async function checkSoundCloudUrl(sourceUrl: string): Promise<SoundCloudCheckResult> {
   const normalizedUrl = normalizeUrlCandidate(sourceUrl);
-  return checkSoundCloudUrlWithProxy(normalizedUrl);
-}
 
-export async function resolveSoundCloudUrl(sourceUrl: string) {
-  const normalizedUrl = normalizeUrlCandidate(sourceUrl);
-
-  try {
-    const response = await fetch(normalizedUrl, {
-      method: "GET",
-      redirect: "follow",
-      headers: {
-        Accept: "text/html,application/xhtml+xml"
-      }
-    });
-
-    return response.url || normalizedUrl;
-  } catch {
-    return normalizedUrl;
+  // トラック以外のURLは、APIを呼ぶ前にここで止める
+  if (!isShortSoundCloudUrl(normalizedUrl) && !isSoundCloudTrackUrl(normalizedUrl)) {
+    throw new Error(TRACK_URL_REQUIRED_MESSAGE);
   }
-}
 
-export async function fetchSoundCloudMetadata(resolvedUrl: string): Promise<MetadataSnapshot> {
-  try {
-    const response = await fetch(resolvedUrl, {
-      method: "GET",
-      headers: {
-        Accept: "text/html,application/xhtml+xml"
-      }
-    });
-
-    return parseSoundCloudMetadata(await response.text());
-  } catch {
-    return {
-      title: null,
-      artist: null,
-      artworkUrl: null,
-      status: "unknown",
-      rawFlag: "fetch_failed",
-      downloadLinks: []
-    };
-  }
-}
-
-async function checkSoundCloudUrlWithProxy(sourceUrl: string): Promise<SoundCloudCheckResult> {
-  const endpoint = `${getWebProxyBaseUrl()}/api/soundcloud/check?url=${encodeURIComponent(sourceUrl)}`;
   let response: Response;
 
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(`${CHECK_ENDPOINT}?url=${encodeURIComponent(normalizedUrl)}`, {
       headers: {
         Accept: "application/json"
       }
     });
   } catch {
-    throw new Error("判定用APIに接続できません。ローカル開発では別ターミナルで npm run web:metadata-proxy を起動してください。");
+    throw new Error("判定用APIに接続できません。通信状況を確認して、もう一度試してください。");
   }
 
   if (!response.ok) {
@@ -72,18 +34,6 @@ async function checkSoundCloudUrlWithProxy(sourceUrl: string): Promise<SoundClou
   }
 
   return response.json() as Promise<SoundCloudCheckResult>;
-}
-
-function getWebProxyBaseUrl() {
-  if (typeof window !== "undefined" && window.location.hostname) {
-    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      return window.location.origin;
-    }
-
-    return `${window.location.protocol}//${window.location.hostname}:8787`;
-  }
-
-  return "http://127.0.0.1:8787";
 }
 
 async function readErrorMessage(response: Response) {

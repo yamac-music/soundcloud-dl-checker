@@ -30,10 +30,8 @@ const MAX_GATE_UNWRAP_DEPTH = 5;
 
 export function parseSoundCloudMetadata(html: string): MetadataSnapshot {
   const hydrationTrack = findHydrationTrack(html);
-  const rawFlag =
-    typeof hydrationTrack?.downloadable === "boolean"
-      ? hydrationTrack.downloadable
-      : findJsonBoolean(html, "downloadable");
+  // ページ全体から "downloadable" を探すと、プレイリストの収録曲や関連曲の値を拾うため、トラック本体の値だけを使う
+  const rawFlag = typeof hydrationTrack?.downloadable === "boolean" ? hydrationTrack.downloadable : "missing";
   const downloadLinks = [
     ...extractDownloadLinks(hydrationTrack?.description, "description"),
     ...extractBuyLinks(hydrationTrack?.purchase_url),
@@ -236,17 +234,6 @@ function readHtmlAttribute(tag: string, name: string) {
   return match ? match[2] : null;
 }
 
-function findJsonBoolean(html: string, key: string) {
-  const pattern = new RegExp(`"${key}":(true|false)`, "i");
-  const match = html.match(pattern);
-
-  if (!match) {
-    return "missing" as const;
-  }
-
-  return match[1] === "true";
-}
-
 function findHydrationTrack(html: string): HydrationTrack | null {
   const match = html.match(/window\.__sc_hydration\s*=\s*(\[.*?\]);\s*<\/script>/s);
 
@@ -256,21 +243,10 @@ function findHydrationTrack(html: string): HydrationTrack | null {
 
   try {
     const entries = JSON.parse(match[1]) as Array<{ data?: unknown; hydratable?: string }>;
+    const sound = entries.find((entry) => entry.hydratable === "sound");
 
-    for (const entry of entries) {
-      const data = entry.data;
-
-      if (!data || typeof data !== "object") {
-        continue;
-      }
-
-      if ("downloadable" in data && "title" in data) {
-        return data as HydrationTrack;
-      }
-    }
+    return sound?.data && typeof sound.data === "object" ? (sound.data as HydrationTrack) : null;
   } catch {
     return null;
   }
-
-  return null;
 }

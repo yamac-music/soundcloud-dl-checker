@@ -1,82 +1,82 @@
-import { normalizeUrlCandidate } from "../../../src/services/url";
-import { parseSoundCloudMetadata } from "../../../src/services/soundcloudParser";
+import { CheckError, checkSoundCloud, validateSourceUrl } from "../../../src/server/soundcloudCheck";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Accept",
-  "Access-Control-Allow-Methods": "GET, OPTIONS"
-};
+// 同じ曲の判定結果をエッジに残す秒数。連続した再判定でSoundCloudへ何度も問い合わせないようにする
+const CACHE_TTL_SECONDS = 10 * 60;
 
-export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders
-  });
+interface CheckContext {
+  request: Request;
+  waitUntil?: (promise: Promise<unknown>) => void;
 }
 
-export async function onRequestGet(context: { request: Request }) {
-  const requestUrl = new URL(context.request.url);
+export async function onRequestGet({ request, waitUntil }: CheckContext) {
+  // このAPIは同じサイトの画面からだけ使う。他サイトのページから呼ばれた場合は断る
+  if (isCrossSiteRequest(request)) {
+    return sendJson(403, { error: "このAPIは SoundCloud DL Checker の画面からだけ利用できます。" });
+  }
+
+  let sourceUrl: string;
 
   try {
-    const sourceUrl = normalizeUrlCandidate(requestUrl.searchParams.get("url") || "");
-    const resolvedUrl = await resolveSoundCloudUrl(sourceUrl);
-    const html = await fetchSoundCloudHtml(resolvedUrl);
-    const metadata = parseSoundCloudMetadata(html);
-
-    return sendJson(200, {
-      sourceUrl,
-      resolvedUrl,
-      metadata
-    });
+    sourceUrl = validateSourceUrl(new URL(request.url).searchParams.get("url") || "");
   } catch (error) {
-    return sendJson(400, {
-      error: error instanceof Error ? error.message : "SoundCloud check failed."
-    });
+    return sendError(error);
   }
+
+  const cache = getEdgeCache();
+  const cacheKey = new Request(buildCacheKeyUrl(request.url, sourceUrl));
+  const cached = await cache?.match(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  let response: Response;
+
+  try {
+    response = sendJson(200, await checkSoundCloud(sourceUrl), CACHE_TTL_SECONDS);
+  } catch (error) {
+    response = sendError(error);
+  }
+
+  // 成功と「曲が見つからない」だけを残す。一時的な失敗は残さず、次の判定で取り直す
+  if (cache && (response.status === 200 || response.status === 404)) {
+    const stored = cache.put(cacheKey, response.clone());
+    waitUntil ? waitUntil(stored) : await stored;
+  }
+
+  return response;
 }
 
-function sendJson(status: number, payload: unknown) {
+function isCrossSiteRequest(request: Request) {
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
+  return fetchSite !== null && fetchSite !== "same-origin" && fetchSite !== "none";
+}
+
+function buildCacheKeyUrl(requestUrl: string, sourceUrl: string) {
+  const key = new URL("/api/soundcloud/check", requestUrl);
+  key.searchParams.set("url", sourceUrl);
+  return key.toString();
+}
+
+function getEdgeCache() {
+  const storage = (globalThis as { caches?: CacheStorage & { default?: Cache } }).caches;
+  return storage?.default ?? null;
+}
+
+function sendError(error: unknown) {
+  if (error instanceof CheckError) {
+    return sendJson(error.status, { error: error.message }, error.status === 404 ? CACHE_TTL_SECONDS : 0);
+  }
+
+  return sendJson(500, { error: "判定中に予期しないエラーが発生しました。" });
+}
+
+function sendJson(status: number, payload: unknown, maxAgeSeconds = 0) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json; charset=utf-8"
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": maxAgeSeconds > 0 ? `public, max-age=${maxAgeSeconds}` : "no-store"
     }
   });
-}
-
-async function resolveSoundCloudUrl(sourceUrl: string) {
-  const response = await fetch(sourceUrl, {
-    method: "GET",
-    redirect: "follow",
-    headers: buildSoundCloudHeaders()
-  });
-
-  if (!response.ok) {
-    throw new Error(`SoundCloud returned HTTP ${response.status}.`);
-  }
-
-  return normalizeUrlCandidate(response.url || sourceUrl);
-}
-
-async function fetchSoundCloudHtml(resolvedUrl: string) {
-  const response = await fetch(resolvedUrl, {
-    method: "GET",
-    headers: buildSoundCloudHeaders()
-  });
-
-  if (!response.ok) {
-    throw new Error(`SoundCloud returned HTTP ${response.status}.`);
-  }
-
-  return response.text();
-}
-
-function buildSoundCloudHeaders() {
-  return {
-    Accept: "text/html,application/xhtml+xml",
-    "Accept-Language": "en-US,en;q=0.9",
-    "User-Agent":
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
-  };
 }

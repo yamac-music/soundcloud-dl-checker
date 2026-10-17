@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "web:metadata-proxy": "node scripts/soundcloud-metadata-proxy.mjs",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },

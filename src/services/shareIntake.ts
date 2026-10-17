@@ -21,7 +21,7 @@ export function buildShareSheetIntakeRequest(payload: SharedPayload): IntakeRequ
   const url = extractSharedSoundCloudUrl(payload);
 
   if (!url) {
-    throw new Error("Shared content did not include a SoundCloud URL.");
+    throw new Error("共有された内容にSoundCloudのURLが含まれていません。");
   }
 
   return buildIntakeRequest(url, "share_sheet");

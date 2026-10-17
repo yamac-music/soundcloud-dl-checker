@@ -5,9 +5,7 @@ export type RawDownloadFlag =
   | "external_link"
   | "buy_link"
   | "buy_link_unverified"
-  | "missing"
-  | "fetch_failed"
-  | "redirect_failed";
+  | "missing";
 
 export type IntakeSource = "manual" | "share_sheet";
 
@@ -26,7 +24,6 @@ export interface IntakeRequest {
 }
 
 export interface SoundCloudCheck {
-  id: string;
   source: IntakeSource;
   sourceUrl: string;
   resolvedUrl: string;
@@ -37,7 +34,6 @@ export interface SoundCloudCheck {
   rawFlag: RawDownloadFlag;
   downloadLinks: DownloadLink[];
   checkedAt: string;
-  note: string | null;
 }
 
 export interface HistoryEntry {

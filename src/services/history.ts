@@ -16,9 +16,7 @@ const RAW_FLAGS = new Set<RawDownloadFlag>([
   "external_link",
   "buy_link",
   "buy_link_unverified",
-  "missing",
-  "fetch_failed",
-  "redirect_failed"
+  "missing"
 ]);
 
 export function createHistoryEntry(record: SoundCloudCheck): HistoryEntry {
